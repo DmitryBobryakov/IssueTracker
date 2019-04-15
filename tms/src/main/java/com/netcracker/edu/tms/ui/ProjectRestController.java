@@ -1,14 +1,13 @@
 package com.netcracker.edu.tms.ui;
 
-import com.netcracker.edu.tms.App;
-import com.netcracker.edu.tms.dao.SendMail;
 import com.netcracker.edu.tms.model.Project;
-import com.netcracker.edu.tms.model.Task;
+
 import com.netcracker.edu.tms.model.User;
 import com.netcracker.edu.tms.model.ProjectInfo;
 import com.netcracker.edu.tms.service.ProjectService;
 
 import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.beans.factory.annotation.Value;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.RestController;
@@ -18,11 +17,8 @@ import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.PathVariable;
 
-import javax.annotation.security.RunAs;
 import java.math.BigInteger;
 import java.util.List;
-import java.util.concurrent.ExecutorService;
-import java.util.concurrent.Executors;
 
 @RestController
 @RequestMapping("/projects")
@@ -40,24 +36,15 @@ public class ProjectRestController {
     public ResponseEntity<Project> addNewProject(@RequestBody ProjectInfo projectInfo) {
         Project newProject = projectInfo.getNewProject();
         List<User> addedUsers = projectInfo.getAddedUsers();
-        ExecutorService executor = Executors.newFixedThreadPool(5);
 
         if (addedUsers == null || addedUsers.isEmpty()) {
             return new ResponseEntity<>(HttpStatus.BAD_REQUEST);
         }
 
-        for (User user : addedUsers) { //Send mail notification to team
-            String mail = user.getEmail();
-            String projectsName = newProject.getName();
-            Runnable sender = new SendMail(projectsName, mail); //with mail and project's name soon*/
-            executor.execute(sender);
-        }
-        executor.shutdown();
-        while (!executor.isTerminated()) {
-        }
-        System.out.println("Finished all sendings");
-
-
+        //this block must be before last return line, because in case of invalid addProject function block must not be executed
+        //start of the  block
+        projectService.sendInvitationToNewProject(addedUsers, newProject);
+        //end of the block
 
         Project newProj = new Project(null, newProject.getCreatorId(), newProject.getName());
         boolean retAddedUsers = projectService.setProjectsTeam(addedUsers, newProj.getId());
@@ -66,6 +53,7 @@ public class ProjectRestController {
         if (!operationResult) {
             return new ResponseEntity<>(HttpStatus.BAD_REQUEST);
         }
+
         return new ResponseEntity<>(newProject, HttpStatus.OK);
     }
 
